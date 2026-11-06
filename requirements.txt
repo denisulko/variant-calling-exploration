@@ -1,3 +1,6 @@
-pandas
-matplotlib
-notebook
+pandas==3.0.3
+numpy==2.5.3
+matplotlib==3.11.2
+seaborn==0.13.2
+biopython==1.88
+jupyter==1.1.1

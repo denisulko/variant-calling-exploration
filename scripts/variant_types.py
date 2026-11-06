@@ -1,27 +1,51 @@
+"""Classify VCF variants into SNPs vs. INDELs and export results/variant_types.csv."""
+
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
 import pandas as pd
 
-file_path = Path("data/raw/sample.vcf")
+from read_vcf import ROOT, iter_vcf_records
 
-records = []
 
-with open(file_path, "r") as f:
-    for line in f:
-        if line.startswith("#"):
-            continue
-        parts = line.strip().split("\t")
-        records.append(parts[:5])
+def export_variant_types(vcf_path: Path, output_csv: Path) -> pd.DataFrame:
+    """Classify each VCF record as SNP or INDEL and write summary CSV."""
+    rows = [
+        {
+            "CHROM": r.chrom,
+            "POS": r.pos,
+            "ID": r.var_id,
+            "REF": r.ref,
+            "ALT": r.alt,
+            "TYPE": r.variant_type,
+        }
+        for r in iter_vcf_records(vcf_path)
+    ]
+    df = pd.DataFrame(rows, columns=["CHROM", "POS", "ID", "REF", "ALT", "TYPE"])
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_csv, index=False)
+    return df
 
-df = pd.DataFrame(records, columns=["CHROM", "POS", "ID", "REF", "ALT"])
 
-def classify(ref, alt):
-    if len(ref) == 1 and len(alt) == 1:
-        return "SNP"
-    else:
-        return "INDEL"
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=ROOT / "data/raw/sample.vcf",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=ROOT / "results/variant_types.csv",
+    )
+    args = parser.parse_args(argv)
+    df = export_variant_types(args.input, args.output)
+    print(df["TYPE"].value_counts())
+    print(f"Saved variant classifications -> {args.output}")
+    return 0
 
-df["TYPE"] = df.apply(lambda row: classify(row["REF"], row["ALT"]), axis=1)
 
-print(df["TYPE"].value_counts())
-
-df.to_csv("results/variant_types.csv", index=False)
+if __name__ == "__main__":
+    raise SystemExit(main())
